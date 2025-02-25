@@ -1,0 +1,5 @@
+.env
+test.ipynb
+test.py
+wandb
+__pycache__
