@@ -45,7 +45,7 @@ class NeuralNetwork():
     def compute_loss(self, X, y):
         y_pred = self.forward(X)
         if self.loss_function == 'cross-entropy':
-            loss = -np.sum(y*np.log(y_pred),axis=1).mean()
+            loss = -np.sum(y*np.log(y_pred + 1e-8),axis=1).mean() ## Added 1e-8 to avoid log(0)
         else:
             raise NotImplementedError("Only cross-entropy loss is supported for now")
         return loss
