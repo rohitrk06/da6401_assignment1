@@ -6,10 +6,11 @@ class ActivationFunctions:
         '''
         Sigmoid activation function
         '''
+        sig = 1 / (1 + np.exp(-x))
         if derivative:
-            return x * (1 - x)
-        return 1 / (1 + np.exp(-x))
-    
+            return sig * (1 - sig)
+        return sig
+        
     @staticmethod
     def relu(x, derivative=False):
         '''
@@ -21,11 +22,14 @@ class ActivationFunctions:
         return np.maximum(0, x)
     
     @staticmethod
-    def tanh(x):
+    def tanh(x, derivative=False):
         '''
-        Tanh activation function
+        Tanh activation function and its derivative.
         '''
-        return np.tanh(x)
+        tanh_x = np.tanh(x)  # Compute tanh
+        if derivative:
+            return 1 - tanh_x**2  # Compute derivative
+        return tanh_x
     
     @staticmethod
     def softmax(x):

@@ -2,7 +2,7 @@ import numpy as np
 
 
 class NeuralNetwork():
-    def __init__(self, input_size, output_size, hidden_layers, neurons_per_layer, activation_function, output_activation):
+    def __init__(self, input_size, output_size, hidden_layers, neurons_per_layer, activation_function, output_activation,loss_function = 'cross-entropy'):
 
         assert hidden_layers > 0, "Number of hidden layers should be greater than 0"
         if type(neurons_per_layer) == int:
@@ -15,6 +15,7 @@ class NeuralNetwork():
         self.output_size = output_size
         self.activation_function = activation_function
         self.output_activation = output_activation
+        self.loss_function = loss_function
 
         self.forward_pass = []
         self.backward_pass = []
@@ -27,7 +28,7 @@ class NeuralNetwork():
 
 
     def __random_initialize_weights_and_biases(self): 
-        self.weights = [np.random.randn(self.input_size, self.neurons_per_layer[0])]
+        self.weights = [np.random.randn(self.input_size, self.neurons_per_layer[0])*0.1] # 0.1 is multiplied to scale the weights down
         self.biases = [np.random.randn(self.neurons_per_layer[0])]
 
         for i in range(1, self.hidden_layers):
@@ -36,6 +37,22 @@ class NeuralNetwork():
 
         self.weights.append(np.random.randn(self.neurons_per_layer[-1], self.output_size))
         self.biases.append(np.random.randn(self.output_size))
+
+        # print("Weights and biases initialized successfully")
+        # print("Dimensions of weights: ", [w.shape for w in self.weights])
+        # print("Dimensions of biases: ", [b.shape for b in self.biases])
+
+    def compute_loss(self, X, y):
+        y_pred = self.forward(X)
+        if self.loss_function == 'cross-entropy':
+            loss = -np.sum(y*np.log(y_pred),axis=1).mean()
+        else:
+            raise NotImplementedError("Only cross-entropy loss is supported for now")
+        return loss
+    
+    def compute_accuracy(self, X, y):
+        y_pred = self.forward(X)
+        return np.sum(np.argmax(y, axis=1) == np.argmax(y_pred, axis=1))/y.shape[0]
  
     def forward(self, X):
         self.flag = True
@@ -58,24 +75,41 @@ class NeuralNetwork():
 
     def backward(self, X, y):
         assert self.flag == True, "Forward pass should be called before calling backward pass"
-        
-        assert type(y) == np.ndarray, "Expected numpy array as input"
-        assert y.ndim == 2, "Expected 2D numpy array as input"
-        assert y.shape[1] == self.output_size, f"Output size is not matching with the output size of the network. Expected {self.output_size} but got {y.shape[1]}"
 
-        gradient_wrt_pre_activation = -(y - self.forward_pass[-1][0]) # gradient of cross entropy loss
+        assert isinstance(y, np.ndarray), "Expected numpy array as input"
+        assert y.ndim == 2, "Expected 2D numpy array as input"
+        assert y.shape[1] == self.output_size, f"Output size mismatch. Expected {self.output_size}, got {y.shape[1]}"
+
+        backward_pass_weights = []
+        backward_pass_biases = []
+
+        if self.loss_function == 'cross-entropy':
+            gradient_wrt_pre_activation = -(y - self.forward_pass[-1][0])  # (64,10)
+        else:
+            raise NotImplementedError("Only cross-entropy loss is supported for now")
 
         for i in range(self.hidden_layers, 0, -1):
-            gradient_wrt_weights = gradient_wrt_pre_activation[:, :, np.newaxis] @ self.forward_pass[i-1][0][:, np.newaxis, :]
-            gradient_wrt_biases = gradient_wrt_pre_activation
+            # Compute weight gradients using einsum
+            gradient_wrt_weights = np.einsum('bi,bj->bij', self.forward_pass[i-1][0], gradient_wrt_pre_activation)
+            gradient_wrt_biases = np.sum(gradient_wrt_pre_activation, axis=0)
+
+            # Compute gradient w.r.t. activation of previous layer
             gradient_wrt_activation = gradient_wrt_pre_activation @ self.weights[i].T
             gradient_wrt_pre_activation = gradient_wrt_activation * self.activation_function(self.forward_pass[i-1][-1], derivative=True)
-            self.backward_pass.append((gradient_wrt_weights, gradient_wrt_biases))
 
-        gradient_wrt_weights = gradient_wrt_pre_activation[:, :, np.newaxis] @ X[:, np.newaxis, :]
-        gradient_wrt_biases = gradient_wrt_pre_activation
+            backward_pass_weights.append(gradient_wrt_weights.copy())
+            backward_pass_biases.append(gradient_wrt_biases.copy())
 
-        self.backward_pass.append((gradient_wrt_weights, gradient_wrt_biases))
+        # Compute gradients for the first layer (input layer)
+        gradient_wrt_weights = np.einsum('bi,bj->bij', X, gradient_wrt_pre_activation)
+        gradient_wrt_biases = np.sum(gradient_wrt_pre_activation, axis=0)
 
-        return self.backward_pass
+        backward_pass_weights.append(gradient_wrt_weights.copy())
+        backward_pass_biases.append(gradient_wrt_biases.copy())
+
+        self.flag = False
+        return (backward_pass_weights[::-1], backward_pass_biases[::-1])
+
+    
+            
 
