@@ -31,11 +31,21 @@ def one_hot_encoding(y, num_classes):
 
 class ActivationFunctions:
     @staticmethod
+    def identity(x, derivative=False):
+        '''
+        Identity activation function
+        '''
+        if derivative:
+            return np.ones_like(x)
+        return x
+    
+    @staticmethod
     def sigmoid(x , derivative=False):
         '''
         Sigmoid activation function
         '''
-        sig = 1 / (1 + np.exp(-x))
+        x = np.clip(x, -500, 500)
+        sig = np.where(x>0, 1 / (1 + np.exp(-x)), np.exp(x) / (1 + np.exp(x)))
         if derivative:
             return sig * (1 - sig)
         return sig

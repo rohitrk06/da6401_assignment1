@@ -2,7 +2,7 @@ import numpy as np
 
 
 class NeuralNetwork():
-    def __init__(self, input_size, output_size, hidden_layers, neurons_per_layer, activation_function, output_activation,loss_function = 'cross-entropy'):
+    def __init__(self, input_size, output_size, hidden_layers, neurons_per_layer, activation_function, output_activation,loss_function = 'cross-entropy',initialization='random'):
 
         assert hidden_layers > 0, "Number of hidden layers should be greater than 0"
         if type(neurons_per_layer) == int:
@@ -24,18 +24,37 @@ class NeuralNetwork():
         self.weights = None
         self.biases = None
 
-        self.__random_initialize_weights_and_biases()
+        if initialization == 'random':
+            self.__random_initialize_weights_and_biases()
+        elif initialization == 'xavier':
+            self.__xavier_initialize_weights_and_biases()
+        else:
+            raise NotImplementedError("Only random and Xavier initialization is supported for now")
 
+    def __xavier_initialize_weights_and_biases(self):
+        std = np.sqrt(2/(self.input_size + self.neurons_per_layer[0]))
+        self.weights = [np.random.normal(0, std, (self.input_size, self.neurons_per_layer[0]))]
+        self.biases = [np.random.normal(0,std,(self.neurons_per_layer[0]))]
+
+        for i in range(1, self.hidden_layers):
+            std = np.sqrt(2/(self.neurons_per_layer[i-1] + self.neurons_per_layer[i]))
+            self.weights.append(np.random.normal(0, std, (self.neurons_per_layer[i-1], self.neurons_per_layer[i])))
+            self.biases.append(np.random.normal(0,std,(self.neurons_per_layer[i])))
+
+        std = np.sqrt(2/(self.neurons_per_layer[-1] + self.output_size))
+        self.weights.append(np.random.normal(0, std, (self.neurons_per_layer[-1], self.output_size)))
+        self.biases.append(np.random.normal(0,std,(self.output_size)))
+         
 
     def __random_initialize_weights_and_biases(self): 
-        self.weights = [np.random.randn(self.input_size, self.neurons_per_layer[0])*0.1] # 0.1 is multiplied to scale the weights down
+        self.weights = [np.random.randn(self.input_size, self.neurons_per_layer[0])*0.01] # 0.01 is multiplied to scale the weights down
         self.biases = [np.random.randn(self.neurons_per_layer[0])]
 
         for i in range(1, self.hidden_layers):
-            self.weights.append(np.random.randn(self.neurons_per_layer[i-1], self.neurons_per_layer[i]))
+            self.weights.append(np.random.randn(self.neurons_per_layer[i-1], self.neurons_per_layer[i])*0.01)
             self.biases.append(np.random.randn(self.neurons_per_layer[i]))
 
-        self.weights.append(np.random.randn(self.neurons_per_layer[-1], self.output_size))
+        self.weights.append(np.random.randn(self.neurons_per_layer[-1], self.output_size)*0.01)
         self.biases.append(np.random.randn(self.output_size))
 
         # print("Weights and biases initialized successfully")

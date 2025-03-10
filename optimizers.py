@@ -1,4 +1,6 @@
 import numpy as np
+import wandb
+from train import x_test, y_test, x_val, y_val
 
 class SGD:
     def __init__(self, learning_rate,epochs, batch_size, model, weight_decay=0):
@@ -14,8 +16,8 @@ class SGD:
 
         for i in range(len(self.model.weights)):
             # print(np.sum(weight_gradients[i],axis=0))
-            self.model.weights[i] -= self.learning_rate * np.mean(weight_gradients[i],axis=0) - self.weight_decay * self.model.weights[i]
-            self.model.biases[i] -= self.learning_rate * np.mean(bias_gradients[i]) - self.weight_decay * self.model.biases[i] 
+            self.model.weights[i] -= self.learning_rate * np.sum(weight_gradients[i],axis=0) - self.weight_decay * self.learning_rate * self.model.weights[i]
+            self.model.biases[i] -= self.learning_rate * np.sum(bias_gradients[i])
 
     def train(self, X, y):
         for epoch in range(self.epochs):
@@ -26,6 +28,13 @@ class SGD:
                 self.__update_weights(X_batch, y_batch)
 
             print(f"Epoch {epoch+1}/{self.epochs}")
+
+            wandb.log({"val_loss": self.model.compute_loss(x_val, y_val)})
+            wandb.log({"val_accuracy": self.model.compute_accuracy(x_val, y_val)})
+
+            wandb.log({"train_accuracy": self.model.compute_accuracy(X, y)})
+            wandb.log({"train_loss": self.model.compute_loss(X, y)})
+ 
             print(f"Loss: {self.model.compute_loss(X, y)}")
             print("Accuracy: ", self.model.compute_accuracy(X, y))
             print("========================================")
@@ -46,11 +55,11 @@ class Momentum:
         weight_gradients, bias_gradients = self.model.backward(X,y)
 
         for i in range(len(self.model.weights)):
-            self.velocity_weights[i] = self.momentum * self.velocity_weights[i] +  self.learning_rate * np.mean(weight_gradients[i],axis=0)
-            self.velocity_biases[i] = self.momentum * self.velocity_biases[i] + self.learning_rate * np.mean(bias_gradients[i]) 
+            self.velocity_weights[i] = self.momentum * self.velocity_weights[i] +  self.learning_rate * np.sum(weight_gradients[i],axis=0)
+            self.velocity_biases[i] = self.momentum * self.velocity_biases[i] + self.learning_rate * np.sum(bias_gradients[i]) 
 
-            self.model.weights[i] -=  self.velocity_weights[i] - self.weight_decay * self.model.weights[i]
-            self.model.biases[i] -=  self.velocity_biases[i] - self.weight_decay * self.model.biases[i]
+            self.model.weights[i] -=  self.velocity_weights[i] - self.weight_decay * self.learning_rate * self.model.weights[i]
+            self.model.biases[i] -=  self.velocity_biases[i] 
 
     def train(self, X, y):
         for epoch in range(self.epochs):
@@ -61,9 +70,17 @@ class Momentum:
                 self.__update_weights(X_batch, y_batch)
 
             print(f"Epoch {epoch+1}/{self.epochs}")
+
+            wandb.log({"val_loss": self.model.compute_loss(x_val, y_val)})
+            wandb.log({"val_accuracy": self.model.compute_accuracy(x_val, y_val)})
+
+            wandb.log({"train_accuracy": self.model.compute_accuracy(X, y)})
+            wandb.log({"train_loss": self.model.compute_loss(X, y)})
+ 
             print(f"Loss: {self.model.compute_loss(X, y)}")
             print("Accuracy: ", self.model.compute_accuracy(X, y))
             print("========================================")
+
 
 class NestrovAcceleratedGradient:
     def __init__(self, learning_rate, epochs, batch_size, model, momentum=0.9,weight_decay = 0):
@@ -88,11 +105,11 @@ class NestrovAcceleratedGradient:
         weight_gradients, bias_gradients = self.model.backward(X,y)
 
         for i in range(len(self.model.weights)):
-            self.velocity_weights[i] = self.momentum * self.velocity_weights[i] + self.learning_rate * np.mean(weight_gradients[i],axis=0) 
-            self.velocity_biases[i] = self.momentum * self.velocity_biases[i] + self.learning_rate * np.mean(bias_gradients[i]) 
+            self.velocity_weights[i] = self.momentum * self.velocity_weights[i] + self.learning_rate * np.sum(weight_gradients[i],axis=0) 
+            self.velocity_biases[i] = self.momentum * self.velocity_biases[i] + self.learning_rate * np.sum(bias_gradients[i]) 
 
-            self.model.weights[i] = weights_before_lookahead[i] -  self.velocity_weights[i] - self.weight_decay * self.model.weights[i]
-            self.model.biases[i] = biases_before_lookahead[i] -  self.velocity_biases[i] - self.weight_decay * self.model.biases[i]
+            self.model.weights[i] = weights_before_lookahead[i] -  self.velocity_weights[i] - self.weight_decay * self.learning_rate * self.model.weights[i]
+            self.model.biases[i] = biases_before_lookahead[i] -  self.velocity_biases[i] 
 
     def train(self, X, y):
         for epoch in range(self.epochs):
@@ -103,6 +120,13 @@ class NestrovAcceleratedGradient:
                 self.__update_weights(X_batch, y_batch)
 
             print(f"Epoch {epoch+1}/{self.epochs}")
+
+            wandb.log({"val_loss": self.model.compute_loss(x_val, y_val)})
+            wandb.log({"val_accuracy": self.model.compute_accuracy(x_val, y_val)})
+
+            wandb.log({"train_accuracy": self.model.compute_accuracy(X, y)})
+            wandb.log({"train_loss": self.model.compute_loss(X, y)})
+ 
             print(f"Loss: {self.model.compute_loss(X, y)}")
             print("Accuracy: ", self.model.compute_accuracy(X, y))
             print("========================================")
@@ -124,13 +148,13 @@ class RMSProp:
         weight_gradients, bias_gradients = self.model.backward(X,y)
 
         for i in range(len(self.model.weights)):
-            self.accumulated_weight_gradients[i] = self.beta * self.accumulated_weight_gradients[i] + (1-self.beta) * np.mean(weight_gradients[i]**2,axis=0)
-            self.accumulated_bias_gradients[i] = self.beta * self.accumulated_bias_gradients[i] + (1-self.beta) * np.mean(bias_gradients[i]**2)
+            self.accumulated_weight_gradients[i] = self.beta * self.accumulated_weight_gradients[i] + (1-self.beta) * np.sum(weight_gradients[i]**2,axis=0)
+            self.accumulated_bias_gradients[i] = self.beta * self.accumulated_bias_gradients[i] + (1-self.beta) * np.sum(bias_gradients[i]**2)
 
             # print(np.sqrt(self.accumulated_weight_gradients[i]).shape)
 
-            self.model.weights[i] -= self.inital_learning_rate * np.mean(weight_gradients[i]**2,axis=0) / (np.sqrt(self.accumulated_weight_gradients[i]) + self.epsilon) - self.weight_decay * self.model.weights[i]
-            self.model.biases[i] -= self.inital_learning_rate * np.mean(bias_gradients[i]**2) / (np.sqrt(self.accumulated_bias_gradients[i]) + self.epsilon) - self.weight_decay * self.model.biases[i]
+            self.model.weights[i] -= self.inital_learning_rate / (np.sqrt(self.accumulated_weight_gradients[i]) + self.epsilon)*(np.sum(weight_gradients[i],axis=0) - self.weight_decay * self.model.weights[i])
+            self.model.biases[i] -= self.inital_learning_rate * np.sum(bias_gradients[i]) / (np.sqrt(self.accumulated_bias_gradients[i]) + self.epsilon) 
 
     def train(self, X, y):
         for epoch in range(self.epochs):
@@ -141,6 +165,13 @@ class RMSProp:
                 self.__update_weights(X_batch, y_batch)
 
             print(f"Epoch {epoch+1}/{self.epochs}")
+
+            wandb.log({"val_loss": self.model.compute_loss(x_val, y_val)})
+            wandb.log({"val_accuracy": self.model.compute_accuracy(x_val, y_val)})
+
+            wandb.log({"train_accuracy": self.model.compute_accuracy(X, y)})
+            wandb.log({"train_loss": self.model.compute_loss(X, y)})
+ 
             print(f"Loss: {self.model.compute_loss(X, y)}")
             print("Accuracy: ", self.model.compute_accuracy(X, y))
             print("========================================")
@@ -155,6 +186,7 @@ class Adam:
         self.beta1 = beta1
         self.beta2 = beta2
         self.epsilon = epsilon
+        self.t = 0
         self.weight_decay =weight_decay
         self.moment_weights = [np.zeros_like(w) for w in self.model.weights]
         self.moment_biases = [np.zeros_like(b) for b in self.model.biases]
@@ -166,20 +198,21 @@ class Adam:
         weight_gradients, bias_gradients = self.model.backward(X,y)
 
         for i in range(len(self.model.weights)):
-            self.moment_weights[i] = self.beta1 * self.moment_weights[i] + (1-self.beta1) * np.mean(weight_gradients[i],axis=0)
-            self.moment_biases[i] = self.beta1 * self.moment_biases[i] + (1-self.beta1) * np.mean(bias_gradients[i])
+            self.moment_weights[i] = self.beta1 * self.moment_weights[i] + (1-self.beta1) * np.sum(weight_gradients[i],axis=0)
+            self.moment_biases[i] = self.beta1 * self.moment_biases[i] + (1-self.beta1) * np.sum(bias_gradients[i])
 
-            self.velocity_weights[i] = self.beta2 * self.velocity_weights[i] + (1-self.beta2) * np.mean(weight_gradients[i]**2,axis=0)
-            self.velocity_biases[i] = self.beta2 * self.velocity_biases[i] + (1-self.beta2) * np.mean(bias_gradients[i]**2)
+            self.velocity_weights[i] = self.beta2 * self.velocity_weights[i] + (1-self.beta2) * np.sum(weight_gradients[i]**2,axis=0)
+            self.velocity_biases[i] = self.beta2 * self.velocity_biases[i] + (1-self.beta2) * np.sum(bias_gradients[i]**2)
 
-            moment_weights_hat = self.moment_weights[i] / (1 - self.beta1**(i+1))
-            moment_biases_hat = self.moment_biases[i] / (1 - self.beta1**(i+1))
+            moment_weights_hat = self.moment_weights[i] / (1 - self.beta1**(self.t+1))
+            moment_biases_hat = self.moment_biases[i] / (1 - self.beta1**(self.t+1))
 
-            velocity_weights_hat = self.velocity_weights[i] / (1 - self.beta2**(i+1))
-            velocity_biases_hat = self.velocity_biases[i] / (1 - self.beta2**(i+1))
+            velocity_weights_hat = self.velocity_weights[i] / (1 - self.beta2**(self.t+1))
+            velocity_biases_hat = self.velocity_biases[i] / (1 - self.beta2**(self.t+1))
 
-            self.model.weights[i] -= self.learning_rate * moment_weights_hat / (np.sqrt(velocity_weights_hat) + self.epsilon) - self.weight_decay * self.model.weights[i]
-            self.model.biases[i] -= self.learning_rate * moment_biases_hat / (np.sqrt(velocity_biases_hat) + self.epsilon) - self.weight_decay * self.model.biases[i]
+            self.model.weights[i] -= self.learning_rate / (np.sqrt(velocity_weights_hat) + self.epsilon)* (moment_weights_hat - self.weight_decay * self.model.weights[i])
+            self.model.biases[i] -= self.learning_rate * moment_biases_hat / (np.sqrt(velocity_biases_hat) + self.epsilon)
+            self.t+=1
 
     def train(self, X, y):
         for epoch in range(self.epochs):
@@ -190,6 +223,13 @@ class Adam:
                 self.__update_weights(X_batch, y_batch)
 
             print(f"Epoch {epoch+1}/{self.epochs}")
+
+            wandb.log({"val_loss": self.model.compute_loss(x_val, y_val)})
+            wandb.log({"val_accuracy": self.model.compute_accuracy(x_val, y_val)})
+
+            wandb.log({"train_accuracy": self.model.compute_accuracy(X, y)})
+            wandb.log({"train_loss": self.model.compute_loss(X, y)})
+ 
             print(f"Loss: {self.model.compute_loss(X, y)}")
             print("Accuracy: ", self.model.compute_accuracy(X, y))
             print("========================================")
@@ -204,6 +244,7 @@ class NADAM:
         self.beta2 = beta2
         self.epsilon = epsilon
         self.weight_decay = weight_decay
+        self.t=0
         self.moment_weights = [np.zeros_like(w) for w in self.model.weights]
         self.moment_biases = [np.zeros_like(b) for b in self.model.biases]
         self.velocity_weights = [np.zeros_like(w) for w in self.model.weights]
@@ -214,20 +255,22 @@ class NADAM:
         weight_gradients, bias_gradients = self.model.backward(X,y)
 
         for i in range(len(self.model.weights)):
-            self.moment_weights[i] = self.beta1 * self.moment_weights[i] + (1-self.beta1) * np.mean(weight_gradients[i],axis=0)
-            self.moment_biases[i] = self.beta1 * self.moment_biases[i] + (1-self.beta1) * np.mean(bias_gradients[i])
+            self.moment_weights[i] = self.beta1 * self.moment_weights[i] + (1-self.beta1) * np.sum(weight_gradients[i],axis=0)
+            self.moment_biases[i] = self.beta1 * self.moment_biases[i] + (1-self.beta1) * np.sum(bias_gradients[i])
 
-            self.velocity_weights[i] = self.beta2 * self.velocity_weights[i] + (1-self.beta2) * np.mean(weight_gradients[i]**2,axis=0)
-            self.velocity_biases[i] = self.beta2 * self.velocity_biases[i] + (1-self.beta2) * np.mean(bias_gradients[i]**2)
+            self.velocity_weights[i] = self.beta2 * self.velocity_weights[i] + (1-self.beta2) * np.sum(weight_gradients[i]**2,axis=0)
+            self.velocity_biases[i] = self.beta2 * self.velocity_biases[i] + (1-self.beta2) * np.sum(bias_gradients[i]**2)
 
-            moment_weights_hat = self.moment_weights[i] / (1 - self.beta1**(i+1))
-            moment_biases_hat = self.moment_biases[i] / (1 - self.beta1**(i+1))
+            moment_weights_hat = self.moment_weights[i] / (1 - self.beta1**(self.t+1))
+            moment_biases_hat = self.moment_biases[i] / (1 - self.beta1**(self.t+1))
 
-            velocity_weights_hat = self.velocity_weights[i] / (1 - self.beta2**(i+1))
-            velocity_biases_hat = self.velocity_biases[i] / (1 - self.beta2**(i+1))
+            velocity_weights_hat = self.velocity_weights[i] / (1 - self.beta2**(self.t+1))
+            velocity_biases_hat = self.velocity_biases[i] / (1 - self.beta2**(self.t+1))
 
-            self.model.weights[i] -= self.learning_rate * (self.beta1*moment_weights_hat + (1-self.beta1)*np.mean(weight_gradients[i],axis=0)/(1-self.beta1**(i+1))) / (np.sqrt(velocity_weights_hat) + self.epsilon) - self.weight_decay * self.model.weights[i]
-            self.model.biases[i] -= self.learning_rate * (self.beta1*moment_biases_hat + (1-self.beta1)*np.mean(bias_gradients[i])/(1-self.beta1**(i+1))) / (np.sqrt(velocity_biases_hat) + self.epsilon) - self.weight_decay * self.model.biases[i]
+            self.model.weights[i] -= self.learning_rate / (np.sqrt(velocity_weights_hat) + self.epsilon) * ((self.beta1*moment_weights_hat + (1-self.beta1)*np.sum(weight_gradients[i],axis=0)/(1-self.beta1**(self.t+1))) - self.weight_decay* self.learning_rate * self.model.weights[i])
+            self.model.biases[i] -= self.learning_rate * (self.beta1*moment_biases_hat + (1-self.beta1)*np.sum(bias_gradients[i])/(1-self.beta1**(self.t+1))) / (np.sqrt(velocity_biases_hat) + self.epsilon)
+
+            self.t+=1
 
     def train(self, X, y):
         for epoch in range(self.epochs):
@@ -238,6 +281,13 @@ class NADAM:
                 self.__update_weights(X_batch, y_batch)
 
             print(f"Epoch {epoch+1}/{self.epochs}")
+
+            wandb.log({"val_loss": self.model.compute_loss(x_val, y_val)})
+            wandb.log({"val_accuracy": self.model.compute_accuracy(x_val, y_val)})
+
+            wandb.log({"train_accuracy": self.model.compute_accuracy(X, y)})
+            wandb.log({"train_loss": self.model.compute_loss(X, y)})
+ 
             print(f"Loss: {self.model.compute_loss(X, y)}")
             print("Accuracy: ", self.model.compute_accuracy(X, y))
             print("========================================")
