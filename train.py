@@ -5,9 +5,17 @@ from timestampLogger import *
 from optimizers import *
 from fashion_mnist import x_train, y_train, x_test, y_test
 import argparse
+from keras.datasets import fashion_mnist, mnist
 import wandb
+import sys
+
+# log_file = open("log.txt", "a")
+# logger = TimeStampLogger(log_file)
+# sys.stdout = logger
 
 
+(x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
+ 
 x_train = normalise_and_flatten(x_train)
 y_train = one_hot_encoding(y_train, 10) # One hot encoding the labels
 
@@ -49,6 +57,23 @@ if __name__ == "__main__":
 
     wandb.run.name = f"hls_{args.num_layers}_hs_{args.hidden_size}_bs_{args.batch_size}_act_{args.activation}_opt_{args.optimizer}_lr_{args.learning_rate}_weight_{args.weight_init}_wd_{args.weight_decay}_loss_{args.loss}_epoch_{args.epochs}_id_test_data_{wandb.run.id}"
 
+    # if args.dataset == 'fashion_mnist':
+    #     (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
+    # elif args.dataset == 'mnist':
+    #     (x_train,y_train), (x_test,y_test) = mnist.load_data()
+    # else:
+    #     raise ValueError("Invalid Dataset. Allowed Values (\"fashion_mnist\", \"mnist\")")
+
+
+    # x_train = normalise_and_flatten(x_train)
+    # y_train = one_hot_encoding(y_train, 10) # One hot encoding the labels
+
+    # x_test = normalise_and_flatten(x_test)
+    # y_test = one_hot_encoding(y_test, 10) # One hot encoding the labels
+
+    # x_train, y_train, x_val, y_val = train_val_split(x_train, y_train)
+
+
     if args.activation == "sigmoid":
         activation_function = ActivationFunctions.sigmoid
     elif args.activation == "ReLU":
@@ -58,9 +83,10 @@ if __name__ == "__main__":
     else:
         activation_function = ActivationFunctions.identity
 
-    nn = NeuralNetwork(input_size = 784, output_size = 10, hidden_layers = 4, 
-                       neurons_per_layer = 32, activation_function = activation_function, 
-                       output_activation = ActivationFunctions.softmax, loss_function = 'cross-entropy')
+    nn = NeuralNetwork(input_size = 784, output_size = 10, num_hidden_layer = args.num_layers, 
+                       hidden_layer_size = args.hidden_size, weight_init_startegy=args.weight_init,
+                       activation_function = activation_function, 
+                       output_activation = ActivationFunctions.softmax, loss_function = args.loss)
     
     if args.optimizer == "sgd":
         optimizer = SGD(args.learning_rate, args.epochs, args.batch_size, nn, weight_decay=args.weight_decay)
@@ -77,9 +103,9 @@ if __name__ == "__main__":
     else:
         raise ValueError("Invalid optimizer")
     
-    print("Training the model")
+    # print("Training the model")
     optimizer.train(x_train, y_train)
-    print("Training completed")
+    # print("Training completed")
 
     wandb.finish()
 

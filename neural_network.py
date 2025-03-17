@@ -1,134 +1,153 @@
 import numpy as np
+from helper_functions import ActivationFunctions
 
-
-class NeuralNetwork():
-    def __init__(self, input_size, output_size, hidden_layers, neurons_per_layer, activation_function, output_activation,loss_function = 'cross-entropy',initialization='random'):
-
-        assert hidden_layers > 0, "Number of hidden layers should be greater than 0"
-        if type(neurons_per_layer) == int:
-            neurons_per_layer = [neurons_per_layer]*hidden_layers
-        assert len(neurons_per_layer) == hidden_layers, "Length of neurons_per_layer list should be equal to the number of hidden layers"
+class NeuralNetwork:
+    def __init__(self, input_size, output_size,
+                 num_hidden_layer, hidden_layer_size,
+                 weight_init_startegy = "random",
+                 activation_function = ActivationFunctions.sigmoid, output_activation=ActivationFunctions.softmax,
+                 loss_function="cross_entropy"):
         
-        self.hidden_layers = hidden_layers
-        self.neurons_per_layer = neurons_per_layer
         self.input_size = input_size
         self.output_size = output_size
-        self.activation_function = activation_function
-        self.output_activation = output_activation
-        self.loss_function = loss_function
 
-        self.forward_pass = []
-        self.backward_pass = []
+        self.num_hidden_layer = num_hidden_layer
 
-
-        self.weights = None
-        self.biases = None
-
-        if initialization == 'random':
-            self.__random_initialize_weights_and_biases()
-        elif initialization == 'xavier':
-            self.__xavier_initialize_weights_and_biases()
+        # If hidden_layer_size is an integer, then all hidden layers will have the same number of neurons
+        # If hidden_layer_size is a list, assuming that the length of the list is equal to num_hidden_layer,
+        # each element of the list will be the number of neurons in the corresponding hidden layer
+        if isinstance(hidden_layer_size, int):
+            self.hidden_layer_size = [hidden_layer_size] * num_hidden_layer
         else:
-            raise NotImplementedError("Only random and Xavier initialization is supported for now")
+            assert len(hidden_layer_size) == num_hidden_layer, "Length of hidden_layer_size should be equal to num_hidden_layer"
+            self.hidden_layer_size = hidden_layer_size
 
-    def __xavier_initialize_weights_and_biases(self):
-        std = np.sqrt(2/(self.input_size + self.neurons_per_layer[0]))
-        self.weights = [np.random.normal(0, std, (self.input_size, self.neurons_per_layer[0]))]
-        self.biases = [np.random.normal(0,std,(self.neurons_per_layer[0]))]
+        self.weights = []
+        self.biases = []
 
-        for i in range(1, self.hidden_layers):
-            std = np.sqrt(2/(self.neurons_per_layer[i-1] + self.neurons_per_layer[i]))
-            self.weights.append(np.random.normal(0, std, (self.neurons_per_layer[i-1], self.neurons_per_layer[i])))
-            self.biases.append(np.random.normal(0,std,(self.neurons_per_layer[i])))
+        #Initialize weights and biases according to the passed argument
+        if weight_init_startegy == "random":
+            self.__init_random_weights()
+        elif weight_init_startegy == "xavier":
+            self.__init_xavier_weights()
+        else:
+            raise ValueError("Invalid weight initialization strategy")
+        
+        self.activation_fn = activation_function
+        self.output_activation = output_activation
+        self.loss_fn = loss_function
 
-        std = np.sqrt(2/(self.neurons_per_layer[-1] + self.output_size))
-        self.weights.append(np.random.normal(0, std, (self.neurons_per_layer[-1], self.output_size)))
-        self.biases.append(np.random.normal(0,std,(self.output_size)))
-         
+        self.forward_pass_values = None
+        self.weight_gradients = None
+        self.bias_gradients = None
 
-    def __random_initialize_weights_and_biases(self): 
-        self.weights = [np.random.randn(self.input_size, self.neurons_per_layer[0])*0.01] # 0.01 is multiplied to scale the weights down
-        self.biases = [np.random.randn(self.neurons_per_layer[0])]
+    def forward(self, X):
+        assert X.shape[-1] == self.input_size, f"Input size is not matching with the input size of the network. Expected {self.input_size} but got {X.shape[1]}"
+        self.forward_pass_values = []
+        pre_activation = X@self.weights[0] + self.biases[0]
+        post_activation = self.activation_fn(pre_activation)
 
-        for i in range(1, self.hidden_layers):
-            self.weights.append(np.random.randn(self.neurons_per_layer[i-1], self.neurons_per_layer[i])*0.01)
-            self.biases.append(np.random.randn(self.neurons_per_layer[i]))
+        self.forward_pass_values.append((pre_activation.copy(),post_activation.copy()))
 
-        self.weights.append(np.random.randn(self.neurons_per_layer[-1], self.output_size)*0.01)
-        self.biases.append(np.random.randn(self.output_size))
+        for i in range(1, self.num_hidden_layer):
+            pre_activation = post_activation@self.weights[i] + self.biases[i]
+            post_activation = self.activation_fn(pre_activation)
 
-        # print("Weights and biases initialized successfully")
-        # print("Dimensions of weights: ", [w.shape for w in self.weights])
-        # print("Dimensions of biases: ", [b.shape for b in self.biases])
+            self.forward_pass_values.append((pre_activation.copy(),post_activation.copy()))
+        
+        pre_activation = post_activation@self.weights[self.num_hidden_layer] + self.biases[self.num_hidden_layer]
+        output = self.output_activation(pre_activation)
+        self.forward_pass_values.append((pre_activation.copy(),output.copy()))
+        return output
 
+    def backward(self, X, y):
+
+        assert isinstance(y, np.ndarray), "Expected numpy array as input"
+        assert y.ndim == 2, "Expected 2D numpy array as input"
+        assert y.shape[1] == self.output_size, f"Output size mismatch. Expected {self.output_size}, got {y.shape[1]}"
+        assert X.shape[-1] == self.input_size, f"Input size is not matching with the input size of the network. Expected {self.input_size} but got {X.shape[1]}"
+
+        self.weight_gradients = []
+        self.bias_gradients = []
+
+        if self.loss_fn == "cross_entropy":
+            gradient_wrt_preactivation_layer = -(y-self.forward_pass_values[-1][1])
+        elif self.loss_fn == "mse":
+            pass
+        else:
+            raise ValueError("Invalid values for Loss function. Allowed values: (\"cross_entropy\", \"mse\")")
+        
+        for layer in range(self.num_hidden_layer,0,-1):
+            gradient_wrt_weights = np.sum(np.einsum('bi,bj->bji',gradient_wrt_preactivation_layer,self.forward_pass_values[layer-1][1]),axis=0)
+            gradient_wrt_biases = np.sum(gradient_wrt_preactivation_layer)
+
+            self.weight_gradients.append(gradient_wrt_weights.copy())
+            self.bias_gradients.append(gradient_wrt_biases.copy())
+
+            gradient_wrt_activation_layer = np.einsum("ji,bi->bj ",self.weights[layer],gradient_wrt_preactivation_layer)
+            gradient_wrt_preactivation_layer = gradient_wrt_activation_layer * self.activation_fn(self.forward_pass_values[layer-1][0],derivative=True)
+
+        gradient_wrt_weights = np.sum(np.einsum('bi,bj->bji',gradient_wrt_preactivation_layer,X),axis=0)
+        gradient_wrt_biases = np.sum(gradient_wrt_preactivation_layer)
+
+        self.weight_gradients.append(gradient_wrt_weights.copy())
+        self.bias_gradients.append(gradient_wrt_biases.copy())
+
+        return self.weight_gradients[::-1],self.bias_gradients[::-1]
+
+
+    def __init_random_weights(self):
+        self.weights.append((np.random.randn(self.input_size, self.hidden_layer_size[0])) * 0.1)
+        self.biases.append(np.random.randn(1,self.hidden_layer_size[0])*0.1)
+
+        for i_layer in range(1,self.num_hidden_layer):
+            self.weights.append(np.random.randn(self.hidden_layer_size[i_layer - 1], self.hidden_layer_size[i_layer]) * 0.1)
+            self.biases.append(np.random.randn(1,self.hidden_layer_size[i_layer])*0.1)
+
+        self.weights.append(np.random.randn(self.hidden_layer_size[-1],self.output_size)*0.1)
+        self.biases.append(np.random.randn(1,self.output_size)*0.1)
+        
+    def __init_xavier_weights(self,type="normal-xavier"): 
+        if type=="normal-xavier":
+            std = np.sqrt(2/(self.input_size + self.hidden_layer_size[0]))
+            self.weights.append(np.random.normal(0,std,size=(self.input_size, self.hidden_layer_size[0])))
+            self.biases.append(np.random.normal(0,std,size=(1,self.hidden_layer_size[0])))
+
+            for i_layer in range(1,self.num_hidden_layer):
+                std = np.sqrt(2/(self.hidden_layer_size[i_layer-1] + self.hidden_layer_size[i_layer]))
+                self.weights.append(np.random.normal(0,std,size=(self.hidden_layer_size[i_layer-1], self.hidden_layer_size[i_layer])))
+                self.biases.append(np.random.normal(0,std,size=(1,self.hidden_layer_size[i_layer])))
+            
+            std = np.sqrt(2/(self.hidden_layer_size[-1]+self.output_size))
+            self.weights.append(np.random.normal(0,std,size=(self.hidden_layer_size[-1],self.output_size)))
+            self.biases.append(np.random.normal(0,std,size=(1,self.output_size)))
+
+        elif type=="uniform-xavier":
+            limit = np.sqrt(6/(self.input_size + self.hidden_layer_size[0]))
+            self.weights.append(np.random.uniform(-limit,limit,size=(self.input_size, self.hidden_layer_size[0])))
+            self.biases.append(np.random.uniform(-limit,limit,size=(1,self.hidden_layer_size[0])))
+
+            for i_layer in range(1,self.num_hidden_layer):
+                limit = np.sqrt(6/(self.hidden_layer_size[i_layer-1] + self.hidden_layer_size[i_layer]))
+                self.weights.append(np.random.uniform(-limit,limit,size=(self.hidden_layer_size[i_layer-1], self.hidden_layer_size[i_layer])))
+                self.biases.append(np.random.uniform(-limit,limit,size=(1,self.hidden_layer_size[i_layer])))
+            
+            limit = np.sqrt(6/(self.hidden_layer_size[-1]+self.output_size))
+            self.weights.append(np.random.uniform(-limit,limit,size=(self.hidden_layer_size[-1],self.output_size)))
+            self.biases.append(np.random.uniform(-limit,limit,size=(1,self.output_size)))
+
+        else:
+            raise ValueError("Invalid Xavier Weight Initialization type. Allowed values (normal-xavier, uniform-xavier)")
+        
     def compute_loss(self, X, y):
         y_pred = self.forward(X)
-        if self.loss_function == 'cross-entropy':
+        if self.loss_fn == 'cross_entropy':
             loss = -np.sum(y*np.log(y_pred + 1e-8),axis=1).mean() ## Added 1e-8 to avoid log(0)
         else:
-            raise NotImplementedError("Only cross-entropy loss is supported for now")
+            raise NotImplementedError("Only cross_entropy loss is supported for now")
         return loss
     
     def compute_accuracy(self, X, y):
         y_pred = self.forward(X)
         return np.sum(np.argmax(y, axis=1) == np.argmax(y_pred, axis=1))/y.shape[0]
- 
-    def forward(self, X):
-        self.flag = True
-        assert X.shape[1] == self.input_size, f"Input size is not matching with the input size of the network. Expected {self.input_size} but got {X.shape[1]}"
-        f_x = X@self.weights[0] + self.biases[0]
-        h_x = self.activation_function(f_x)
-
-        self.forward_pass.append((h_x.copy(), f_x.copy()))
-
-        for i in range(1, self.hidden_layers):
-            f_x = h_x @ self.weights[i] + self.biases[i]
-            h_x = self.activation_function(f_x)
-            self.forward_pass.append((h_x.copy(), f_x.copy()))
-
-        f_x = h_x @ self.weights[-1] + self.biases[-1]
-        y = self.output_activation(f_x)
-        self.forward_pass.append((y.copy(), f_x.copy()))
-
-        return y
-
-    def backward(self, X, y):
-        assert self.flag == True, "Forward pass should be called before calling backward pass"
-
-        assert isinstance(y, np.ndarray), "Expected numpy array as input"
-        assert y.ndim == 2, "Expected 2D numpy array as input"
-        assert y.shape[1] == self.output_size, f"Output size mismatch. Expected {self.output_size}, got {y.shape[1]}"
-
-        backward_pass_weights = []
-        backward_pass_biases = []
-
-        if self.loss_function == 'cross-entropy':
-            gradient_wrt_pre_activation = -(y - self.forward_pass[-1][0])  # (64,10)
-        else:
-            raise NotImplementedError("Only cross-entropy loss is supported for now")
-
-        for i in range(self.hidden_layers, 0, -1):
-            # Compute weight gradients using einsum
-            gradient_wrt_weights = np.einsum('bi,bj->bij', self.forward_pass[i-1][0], gradient_wrt_pre_activation)
-            gradient_wrt_biases = np.sum(gradient_wrt_pre_activation, axis=0)
-
-            # Compute gradient w.r.t. activation of previous layer
-            gradient_wrt_activation = gradient_wrt_pre_activation @ self.weights[i].T
-            gradient_wrt_pre_activation = gradient_wrt_activation * self.activation_function(self.forward_pass[i-1][-1], derivative=True)
-
-            backward_pass_weights.append(gradient_wrt_weights.copy())
-            backward_pass_biases.append(gradient_wrt_biases.copy())
-
-        # Compute gradients for the first layer (input layer)
-        gradient_wrt_weights = np.einsum('bi,bj->bij', X, gradient_wrt_pre_activation)
-        gradient_wrt_biases = np.sum(gradient_wrt_pre_activation, axis=0)
-
-        backward_pass_weights.append(gradient_wrt_weights.copy())
-        backward_pass_biases.append(gradient_wrt_biases.copy())
-
-        self.flag = False
-        return (backward_pass_weights[::-1], backward_pass_biases[::-1])
-
-    
-            
-
+        

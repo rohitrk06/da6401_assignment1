@@ -4,3 +4,6 @@ test.py
 wandb
 __pycache__
 NNBestModel.py
+test1.ipynb
+nn.py
+log.txt

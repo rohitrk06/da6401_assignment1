@@ -1,0 +1,27 @@
+program: "train.py"
+name: "DA6401_Assignment1_sweep"
+method: "bayes"
+metric:
+  goal: maximize
+  name: val_accuracy
+parameters:
+  epochs:
+    values: [10]
+  batch_size:
+    values: [64]
+  num_layers:
+    values: [4]
+  hidden_size:
+    values: [64,128]
+  weight_decay:
+    values: [0, 0.0005]
+  learning_rate: 
+    max: 0.001
+    min: 0.0001
+    distribution: log_uniform_values
+  optimizer: 
+    values: ["adam", "nadam"]
+  weight_init: 
+    values: ["random", "xavier"]
+  activation:
+    values: ["sigmoid", "tanh"]
