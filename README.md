@@ -1,7 +1,7 @@
 # DA6401 Assignment 1
 
 #### Report Link (WANDB)
-Project report for this assignment can be accessed here: [Click here to view the wandb report](https://wandb.ai/rohitrk06-indian-institute-of-technology-madras/da6401_assignment1/reports/DA6401-Assignment-1--VmlldzoxMTUyNzQyNQ)
+Project report for this assignment can be accessed here: [Click here to view the wandb report](https://wandb.ai/rohitrk06-indian-institute-of-technology-madras/da6401_assignment1/reports/DA6401-Assignment-1--VmlldzoxMTUyNzQyNQ?accessToken=kwpx9fcqk9nhnc145j6qpynpwemfveonc24ffyydd4if54a1ebcrveu20ddp30gt)
 
 #### GitHub Repository
 Assignment Github repository can be accessed here: [Click here visit github repo](https://github.com/rohitrk06/da6401_assignment1)
