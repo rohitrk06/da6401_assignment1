@@ -3,7 +3,7 @@ import wandb
 # from train import x_test, y_test, x_val, y_val
 
 class SGD:
-    def __init__(self, learning_rate,epochs, batch_size, weight_decay=0):
+    def __init__(self, learning_rate,epochs, batch_size, model_parameters=None,weight_decay=0):
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.batch_size = batch_size

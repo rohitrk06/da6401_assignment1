@@ -71,10 +71,13 @@ class ActivationFunctions:
         return tanh_x
     
     @staticmethod
-    def softmax(x):
+    def softmax(x, derivative=False):
         '''
         Softmax activation function
         '''
         assert x.ndim == 2, "Input tensor should be a 2D tensor"
         exps = np.exp(x - np.max(x, axis=1, keepdims=True))
-        return exps / np.sum(exps, axis=1, keepdims=True)
+        softmax_x = exps / np.sum(exps, axis=1, keepdims=True)
+        if derivative:
+            return softmax_x * (1 - softmax_x)
+        return softmax_x

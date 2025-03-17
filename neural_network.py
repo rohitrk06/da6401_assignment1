@@ -74,8 +74,18 @@ class NeuralNetwork:
 
         if self.loss_fn == "cross_entropy":
             gradient_wrt_preactivation_layer = -(y-self.forward_pass_values[-1][1])
-        elif self.loss_fn == "mse":
-            pass
+        elif self.loss_fn == "mean_squared_error":
+            softmax_output = self.forward_pass_values[-1][1]  # Softmax output (y_pred)
+            batch_size = y.shape[0]
+            
+            # Compute the Jacobian matrix for softmax
+            jacobian = np.zeros((batch_size, self.output_size, self.output_size))
+            for i in range(batch_size):
+                s = softmax_output[i].reshape(-1, 1)  # Convert to column vector
+                jacobian[i] = np.diagflat(s) - np.dot(s, s.T)  # Compute Softmax' Jacobian
+
+            # Compute gradient using the Jacobian
+            gradient_wrt_preactivation_layer = np.einsum("bij,bj->bi", jacobian, (softmax_output - y)) * (-2 / batch_size)
         else:
             raise ValueError("Invalid values for Loss function. Allowed values: (\"cross_entropy\", \"mse\")")
         
@@ -145,6 +155,8 @@ class NeuralNetwork:
         y_pred = self.forward(X)
         if self.loss_fn == 'cross_entropy':
             loss = -np.sum(y*np.log(y_pred + 1e-8),axis=1).mean() ## Added 1e-8 to avoid log(0)
+        elif self.loss_fn == 'mean_squared_error':
+            loss = np.sum((y-y_pred)**2)/y.shape[0]
         else:
             raise NotImplementedError("Only cross_entropy loss is supported for now")
         return loss
@@ -171,8 +183,8 @@ class NeuralNetwork:
             train_loss = self.compute_loss(X,y)
             train_accuracy = self.compute_accuracy(X,y)
             print(f"Loss: {train_loss}, Accuracy: {train_accuracy}")
-            wandb.log({"train_accuracy": train_loss})
-            wandb.log({"train_loss": train_accuracy})
+            wandb.log({"train_accuracy": train_accuracy})
+            wandb.log({"train_loss": train_loss})
             if X_val is not None and y_val is not None:
                 val_loss = self.compute_loss(X_val,y_val)
                 val_accuracy = self.compute_accuracy(X_val,y_val)
