@@ -118,6 +118,11 @@ if __name__ == "__main__":
     confusion_matrix = wandb.plot.confusion_matrix(y_true=y_test, preds=test_prediction, class_names=class_names)
     wandb.log({"confusion_matrix": confusion_matrix})
 
+    def accuracy(y_true, y_pred):
+        return np.mean(y_true == y_pred)
+    
+    wandb.log({"accuracy": accuracy(y_test, test_prediction)})
+
     wandb.finish()
 
 
