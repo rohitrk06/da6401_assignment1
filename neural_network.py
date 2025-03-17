@@ -1,5 +1,6 @@
 import numpy as np
 from helper_functions import ActivationFunctions
+from optimizers import *
 
 class NeuralNetwork:
     def __init__(self, input_size, output_size,
@@ -36,6 +37,7 @@ class NeuralNetwork:
         self.activation_fn = activation_function
         self.output_activation = output_activation
         self.loss_fn = loss_function
+        # optimizer = optimizer
 
         self.forward_pass_values = None
         self.weight_gradients = None
@@ -147,7 +149,35 @@ class NeuralNetwork:
             raise NotImplementedError("Only cross_entropy loss is supported for now")
         return loss
     
+    def get_learning_params(self):
+        return {"weights": self.weights, "biases": self.biases}
+    
     def compute_accuracy(self, X, y):
-        y_pred = self.forward(X)
-        return np.sum(np.argmax(y, axis=1) == np.argmax(y_pred, axis=1))/y.shape[0]
+        return np.sum(np.argmax(y, axis=1) == self.predict(X))/y.shape[0]
+    
+    def predict(self, X):
+        return np.argmax(self.forward(X),axis=1)
+    
+    def train(self,optimizer,X,y,X_val=None,y_val=None):
+        print("Training the model with optimizer: ", optimizer.__class__.__name__)
+        for epoch in range(optimizer.epochs):
+            print(f"Epoch: {epoch+1}/{optimizer.epochs}")
+            for i in range(0,len(X),optimizer.batch_size):
+                X_batch = X[i:i+optimizer.batch_size]
+                y_batch = y[i:i+optimizer.batch_size]
+
+                optimizer.update_weights(self,X_batch,y_batch)
+
+            train_loss = self.compute_loss(X,y)
+            train_accuracy = self.compute_accuracy(X,y)
+            print(f"Loss: {train_loss}, Accuracy: {train_accuracy}")
+            wandb.log({"train_accuracy": train_loss})
+            wandb.log({"train_loss": train_accuracy})
+            if X_val is not None and y_val is not None:
+                val_loss = self.compute_loss(X_val,y_val)
+                val_accuracy = self.compute_accuracy(X_val,y_val)
+                print(f"Validation Loss: {val_loss}, Validation Accuracy: {val_accuracy}")
+                wandb.log({"val_loss": val_loss})
+                wandb.log({"val_accuracy": val_accuracy})
+            
         
